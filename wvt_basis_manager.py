@@ -11,9 +11,11 @@ class WaveletBasisManager:
         nsteps: int,
         lims: Tuple[float, float] = (0.0, 1.0),
         level: int = 5,
+        use_subscale: bool = False,
     ):
         assert lims[0] < lims[1]
         assert nsteps > 0
+        self.use_subscale = use_subscale
         self.level = level
         self.nsteps = nsteps
         self.lims = lims
@@ -33,15 +35,21 @@ class WaveletBasisManager:
         self._base_wvt = wvt
         self._m = int(m)
         self._base_phi, self._base_psi = wvt.get_phi_psi(self.level)
+        self._base_psi = self._base_psi.shift(-self._base_psi.xx[0])
         self._scale_factor = (self.lims[1] - self.lims[0]) / (self.nsteps + 2 * (self.m - 1))
 
         self._base_phi = self.base_phi.scale(self.scale_factor)
         self._base_psi = self.base_psi.scale(self.scale_factor)
 
-        self._basis_funcs = [
+        self._basis_funcs_phi = [
             self.base_phi.shift(self.lims[0] + i * self.scale_factor)
             for i in range(self.nsteps)
         ]
+        self._basis_funcs_psi = [
+            self.base_psi.shift(self.lims[0] + i * self.scale_factor)
+            for i in range(self.nsteps)
+        ] if self.use_subscale else []
+        self._basis_funcs = self._basis_funcs_phi + self._basis_funcs_psi
 
     def reconstruct(self, coefs: np.array):
         assert coefs.ndim == 1
@@ -51,9 +59,21 @@ class WaveletBasisManager:
         )
 
     def iterate_overlapping_ids(self):
-        for i1 in range(len(self.basis_funcs)):
-            for i2 in range(i1, min(i1 + 2 * self.m - 1, len(self.basis_funcs))):
-                yield (i1, i2)
+        for i in range(len(self._basis_funcs_phi)):
+            for delta_i in range(2 * self.m - 1):
+                j = i + delta_i
+                if j < len(self._basis_funcs_phi):
+                    yield (i, j)
+
+                if self._basis_funcs_psi:
+                    if j < len(self._basis_funcs_phi):
+                        yield (i, len(self._basis_funcs_phi) + j)
+                        yield (len(self._basis_funcs_phi) + i, len(self._basis_funcs_phi) + j)
+
+                    if delta_i > 0:
+                        j -= 2 * delta_i
+                        if j >= 0:
+                            yield (i, len(self._basis_funcs_phi) + j)
 
     @property
     def m(self):
