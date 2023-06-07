@@ -64,6 +64,8 @@ class TabulatedFunc:
             )
     
         xx = np.unique(np.concatenate([self.xx, other.xx]))
+        keep = np.concatenate([[True], ~np.isclose(xx[1:] - xx[:-1], 0, atol=1e-10)])
+        xx = xx[keep]
         yy_this = self.resample(xx).yy
         yy_other = other.resample(xx).yy
         return TabulatedFunc(
