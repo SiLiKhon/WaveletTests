@@ -1,3 +1,14 @@
+# Scaling function moments formula not so hard to derive.
+# Also present in https://doi.org/10.1063/1.478741 (though with a typo in normalization).
+#
+# Quadrature filter uses coefficients of the Lagrange polynomials
+# (https://doi.org/10.1016/j.jcp.2006.01.003)
+#
+# Kinetic energy filter (diff_filter) taken from
+# https://comphys.unibas.ch/publications/Goedecker1998d.pdf
+# (Stefan Goedecker, Wavelets and their application for the solution of partial differential
+# equations in physics, chapter 23)
+
 from typing import List, Optional, Collection, Union
 
 import numpy as np
@@ -40,3 +51,26 @@ def calculate_quad_filter(wvt: pywt.Wavelet) -> np.array:
     moments = calculate_moments(wvt, len(wvt.filter_bank[2]))
     plr = get_Plr(range(len(moments)))
     return np.array([float(x) for x in plr @ moments])
+
+def build_Aij(hh: Collection[float]) -> np.array:
+    hh = np.array(hh)
+    mu = np.arange(len(hh))[:, None, None, None]
+    nu = np.arange(len(hh))[None, :, None, None]
+    ii = np.arange(-len(hh) + 2, len(hh) - 1)[None, None, :, None]
+    jj = np.arange(-len(hh) + 2, len(hh) - 1)[None, None, None, :]
+
+    return (
+        hh[mu] * hh[nu] * (jj == 2 * ii - nu + mu).astype(int)
+    ).sum(axis=(0, 1))
+
+def get_diff_filter(wvt: pywt.Wavelet) -> np.array:
+    hh = wvt.filter_bank[2]
+    Aij = build_Aij(hh)
+    eigvals, eigvecs = np.linalg.eig(Aij)
+    i_value = np.abs(eigvals - 0.25).argmin()
+    assert np.isclose(eigvals[i_value], 0.25)
+    assert (np.abs(np.imag(eigvecs[i_value])) < 1e-8).all()
+
+    aa = np.real(eigvecs[:, i_value])
+    norm = (np.arange(-len(hh) + 2, len(hh) - 1)**2 * aa).sum() / 2
+    return aa / norm
