@@ -63,7 +63,7 @@ def build_Aij(hh: Collection[float]) -> np.array:
         hh[mu] * hh[nu] * (jj == 2 * ii - nu + mu).astype(int)
     ).sum(axis=(0, 1))
 
-def get_diff_filter(wvt: pywt.Wavelet) -> np.array:
+def calculate_diff_filter(wvt: pywt.Wavelet) -> np.array:
     hh = wvt.filter_bank[2]
     Aij = build_Aij(hh)
     eigvals, eigvecs = np.linalg.eig(Aij)

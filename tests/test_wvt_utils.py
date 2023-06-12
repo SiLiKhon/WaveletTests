@@ -4,7 +4,7 @@ from pywt import Wavelet
 import numpy as np
 
 from tabulated_wvt import TabulatedWavelet, TabulatedFunc
-from wvt_utils import calculate_moments, calculate_quad_filter, get_diff_filter
+from wvt_utils import calculate_moments, calculate_quad_filter, calculate_diff_filter
 
 
 @fixture(params=[
@@ -66,7 +66,7 @@ def test_quad_filter(projection_coefficient_numeric: float, projection_coefficie
 
 @fixture
 def diff_filter_analytical(wavelet: TabulatedWavelet) -> np.array:
-    return get_diff_filter(wavelet.wvt)
+    return calculate_diff_filter(wavelet.wvt)
 
 @fixture
 def diff_filter_numeric(phi: TabulatedFunc) -> np.array:
