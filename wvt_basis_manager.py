@@ -23,7 +23,7 @@ class WaveletBasisManager:
         self.base_wvt = wvt
 
     @property
-    def base_wvt(self):
+    def base_wvt(self) -> TabulatedWavelet:
         return self._base_wvt
 
     @base_wvt.setter
@@ -106,7 +106,7 @@ class WaveletBasisManager:
                             yield (i, len(self._basis_funcs_phi) + j)
 
     @property
-    def m(self):
+    def m(self) -> int:
         return self._m
 
     @property
