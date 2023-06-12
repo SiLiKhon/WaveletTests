@@ -1,8 +1,9 @@
-from typing import Tuple, List
+from typing import Tuple, List, Callable
 
 import numpy as np
 
 from tabulated_wvt import TabulatedWavelet, TabulatedFunc
+from wvt_utils import calculate_quad_filter, calculate_diff_filter
 
 class WaveletBasisManager:
     def __init__(
@@ -51,12 +52,41 @@ class WaveletBasisManager:
         ] if self.use_subscale else []
         self._basis_funcs = self._basis_funcs_phi + self._basis_funcs_psi
 
+        self._knots = np.linspace(
+            *self.lims, np.round((self.lims[1] - self.lims[0]) / self.scale_factor).astype(int) + 1,
+        )
+        xxmin_vals = np.array([f.xx.min() for f in self.basis_funcs])
+        assert np.allclose(xxmin_vals, self.knots[:len(self.basis_funcs)])
+
+        self._ww = calculate_quad_filter(wvt.wvt)
+        self._aa = calculate_diff_filter(wvt.wvt)
+
     def reconstruct(self, coefs: np.array):
         assert coefs.ndim == 1
         assert len(coefs) == len(self.basis_funcs)
         return sum(
             func * c for c, func in zip(coefs, self.basis_funcs)
         )
+
+    def get_matrix_elements(self, func: Callable) -> np.array:
+        if self._basis_funcs_psi:
+            raise NotImplementedError("Quadratures not implemented for subscale yet")
+
+        basis_size = len(self.basis_funcs)
+        mat = np.zeros((basis_size, basis_size))
+        f_knots = func(self.knots)
+        for i, j in self.iterate_overlapping_ids():
+            ll = np.arange(j, i + 2 * self.m)
+            mat[i, j] = mat[j, i] = (f_knots[ll] * self.ww[ll - i] * self.ww[ll - j]).sum()
+
+        return mat
+
+    def get_ke_matrix(self) -> np.array:
+        basis_size = len(self.basis_funcs)
+        mat = np.zeros((basis_size, basis_size))
+        for i, j in self.iterate_overlapping_ids():
+            mat[i, j] = mat[j, i] = -self.aa[2 * self.m - 2 + j - i] / 2 / self.scale_factor**2
+        return mat
 
     def iterate_overlapping_ids(self):
         for i in range(len(self._basis_funcs_phi)):
@@ -84,13 +114,25 @@ class WaveletBasisManager:
         return self._basis_funcs
 
     @property
-    def base_phi(self):
+    def base_phi(self) -> TabulatedFunc:
         return self._base_phi
 
     @property
-    def base_psi(self):
+    def base_psi(self) -> TabulatedFunc:
         return self._base_psi
 
     @property
-    def scale_factor(self):
+    def scale_factor(self) -> float:
         return self._scale_factor
+
+    @property
+    def knots(self) -> np.array:
+        return self._knots
+
+    @property
+    def ww(self) -> np.array:
+        return self._ww
+
+    @property
+    def aa(self) -> np.array:
+        return self._aa
