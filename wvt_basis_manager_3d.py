@@ -50,6 +50,39 @@ class WaveletBasisManager3d:
         self._scale_factor_y = (self.lims_y[1] - self.lims_y[0]) / (num_knots[1] - 1)
         self._scale_factor_z = (self.lims_z[1] - self.lims_z[0]) / (num_knots[2] - 1)
 
+    def reconstruct(self, coefs: np.array, level: int = 2):
+        if coefs.ndim == 1:
+            coefs = coefs.reshape(*self.nsteps)
+
+        assert coefs.shape == tuple(self.nsteps)
+        phi_func, _, phi_xx = self.base_wvt.wavefun(level=level)
+        assert phi_xx[0] == 0
+        assert phi_xx[-1] == 2 * self.m - 1
+        full_size = (2 * self.m - 2 + self.nsteps) * (len(phi_xx) - 1) / (2 * self.m - 1) + 1
+        assert (full_size.astype(int) == full_size).all()
+        full_size = full_size.astype(int)
+        knot_step_size = (len(phi_xx) - 1) / (2 * self.m - 1)
+        assert int(knot_step_size) == knot_step_size
+        knot_step_size = int(knot_step_size)
+        assert phi_xx[knot_step_size] == 1
+
+        xx = np.linspace(*self.lims_x, full_size[0])
+        yy = np.linspace(*self.lims_y, full_size[1])
+        zz = np.linspace(*self.lims_z, full_size[2])
+
+        ff = np.zeros(shape=tuple(full_size), dtype=np.float64)
+        phi_3d = phi_func[:, None, None] * phi_func[None, :, None] * phi_func[None, None, :]
+        for ix, mat_i in enumerate(coefs):
+            for iy, row in enumerate(mat_i):
+                for iz, c in enumerate(row):
+                    ff[
+                        ix * knot_step_size: (ix + 2 * self.m - 1) * knot_step_size + 1,
+                        iy * knot_step_size: (iy + 2 * self.m - 1) * knot_step_size + 1,
+                        iz * knot_step_size: (iz + 2 * self.m - 1) * knot_step_size + 1,
+                    ] += phi_3d * c
+
+        return xx, yy, zz, ff
+
     def _iterate_overlapping_ids(self, axis: str):
         assert len(axis) == 1
         basis_size = self.nsteps["xyz".index(axis)]
