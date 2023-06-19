@@ -62,7 +62,7 @@ class WaveletBasisManager2d:
         assert phi_xx[knot_step_size] == 1
 
         xx = np.linspace(*self.lims_x, full_size[0])
-        yy = np.linspace(*self.lims_x, full_size[1])
+        yy = np.linspace(*self.lims_y, full_size[1])
 
         ff = np.zeros(shape=tuple(full_size), dtype=np.float64)
         phi_2d = phi_func[:, None] * phi_func[None, :]

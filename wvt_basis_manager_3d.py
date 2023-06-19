@@ -46,9 +46,9 @@ class WaveletBasisManager3d:
         self._knots_x = np.linspace(*self.lims_x, num_knots[0])
         self._knots_y = np.linspace(*self.lims_y, num_knots[1])
         self._knots_z = np.linspace(*self.lims_z, num_knots[2])
-        self._scale_factor_x = (self.lims_x[1] - self.lims_x[0]) / (num_knots[0] + 1)
-        self._scale_factor_y = (self.lims_y[1] - self.lims_y[0]) / (num_knots[1] + 1)
-        self._scale_factor_z = (self.lims_z[1] - self.lims_z[0]) / (num_knots[2] + 1)
+        self._scale_factor_x = (self.lims_x[1] - self.lims_x[0]) / (num_knots[0] - 1)
+        self._scale_factor_y = (self.lims_y[1] - self.lims_y[0]) / (num_knots[1] - 1)
+        self._scale_factor_z = (self.lims_z[1] - self.lims_z[0]) / (num_knots[2] - 1)
 
     def _iterate_overlapping_ids(self, axis: str):
         assert len(axis) == 1
@@ -71,10 +71,15 @@ class WaveletBasisManager3d:
                     -self.aa[2 * self.m - 2 + j - i] / 2 / scale_factor**2
                 )
 
+        make_kronecker = lambda ax1, ax2: (
+             np.eye(self.nsteps[ax1] * self.nsteps[ax2]).reshape(
+                self.nsteps[1], self.nsteps[2], self.nsteps[1], self.nsteps[2]
+            )
+        )
         return (
-            matrices[0][:, None, None, :, None, None]
-            + matrices[1][None, :, None, None, :, None]
-            + matrices[2][None, None, :, None, None, :]
+            matrices[0][:, None, None, :, None, None] * make_kronecker(1, 2)[None, :, :, None, :, :]
+            + matrices[1][None, :, None, None, :, None] * make_kronecker(0, 2)[:, None, :, :, None, :]
+            + matrices[2][None, None, :, None, None, :] * make_kronecker(0, 1)[:, :, None, :, :, None]
         )
 
     def get_matrix_elements(self, func: Callable) -> np.array:
